@@ -1,207 +1,195 @@
 <template>
-  <div class="login-wrapper">
-    <!-- Esta capa oscurece un poco la foto de fondo para que el panel resalte -->
-    <div class="overlay"></div>
+  <div class="login-container" :style="{ backgroundImage: `url(${fondoImg})` }">
+    <div class="login-overlay">
+      <div class="login-card">
+        <div class="text-center mb-4">
+          <div class="brand-title">Transnewfast</div>
+          <p class="brand-subtitle">Panel de Operador</p>
+        </div>
 
-    <div class="login-box">
-      <div class="login-header">
-        <h1>Transnewfast</h1>
-        <p>Panel de Operador 🚕</p>
+        <form @submit.prevent="intentarLogin">
+          <div class="mb-3">
+            <label class="form-label text-white-50 small">Usuario</label>
+            <div class="input-group custom-input-group">
+              <input type="text" class="form-control custom-input" v-model="usuario" required placeholder="Usuario">
+              <span class="input-group-text custom-icon">👤</span>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-white-50 small">Contraseña</label>
+            <div class="input-group custom-input-group">
+              <input type="password" class="form-control custom-input" v-model="password" required placeholder="••••••••">
+              <span class="input-group-text custom-icon">🔒</span>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-4 text-white-50 small">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="recordar">
+              <label class="form-check-label" for="recordar" style="cursor: pointer;">Recordarme</label>
+            </div>
+            <a href="#" @click.prevent class="text-warning text-decoration-none">¿Olvidaste tu contraseña?</a>
+          </div>
+
+          <div v-if="errorMsg" class="alert alert-danger py-2 small text-center mb-3 bg-danger text-white border-0">
+            {{ errorMsg }}
+          </div>
+
+          <button type="submit" class="btn btn-warning w-100 py-2 fw-bold text-dark shadow-sm" :disabled="cargando">
+            <span v-if="cargando" class="spinner-border spinner-border-sm me-1"></span>
+            {{ cargando ? 'Verificando...' : 'Ingresar' }}
+          </button>
+        </form>
       </div>
-
-      <!-- El evento @submit.prevent evita que la página se recargue, 
-           y emite el evento 'login' para que App.vue te deje entrar al Dashboard -->
-      <form @submit.prevent="$emit('login')">
-        <div class="input-container">
-          <input type="text" v-model="usuario" placeholder="Usuario" required />
-          <span class="icon">👤</span>
-        </div>
-
-        <div class="input-container">
-          <input type="password" v-model="password" placeholder="Contraseña" required />
-          <span class="icon">🔒</span>
-        </div>
-
-        <div class="options">
-          <label class="checkbox-container">
-            <input type="checkbox" v-model="recordarme" />
-            <span class="text">Recordarme</span>
-          </label>
-          <a href="#" class="forgot-link">¿Olvidaste tu contraseña?</a>
-        </div>
-
-        <button type="submit" class="btn-login">Ingresar</button>
-      </form>
     </div>
   </div>
 </template>
 
 <script>
+import { db } from '../firebase'
+import { collection, getDocs } from 'firebase/firestore'
+import fondoImg from '../assets/fondo.jpg'
+
 export default {
-  name: 'Login',
+  name: 'LoginView',
   data() {
     return {
       usuario: '',
       password: '',
-      recordarme: false
-    };
+      errorMsg: '',
+      cargando: false,
+      fondoImg
+    }
+  },
+  methods: {
+    async intentarLogin() {
+      this.errorMsg = '';
+      this.cargando = true;
+
+      try {
+        const usuariosRef = collection(db, "usuarios");
+        const querySnapshot = await getDocs(usuariosRef);
+
+        if (querySnapshot.empty) {
+          this.errorMsg = "No hay usuarios registrados en el sistema.";
+          this.cargando = false;
+          return;
+        }
+
+        const usuarioInput = this.usuario.trim().toLowerCase();
+        let usuarioEncontrado = null;
+
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const usuarioDb = (data.usuario || '').trim().toLowerCase();
+          
+          if (usuarioDb === usuarioInput) {
+            usuarioEncontrado = { id: docSnap.id, ...data };
+          }
+        });
+
+        if (!usuarioEncontrado) {
+          this.errorMsg = "El usuario no existe en la base de datos.";
+          this.cargando = false;
+          return;
+        }
+
+        if (usuarioEncontrado.activo === false) {
+          this.errorMsg = "Esta cuenta se encuentra suspendida o inactiva.";
+          this.cargando = false;
+          return;
+        }
+
+        if (usuarioEncontrado.password === this.password) {
+          this.$emit('login', usuarioEncontrado);
+        } else {
+          this.errorMsg = "Contraseña incorrecta.";
+        }
+
+      } catch (e) {
+        console.error("Error al iniciar sesión: ", e);
+        this.errorMsg = "Error de conexión con la base de datos.";
+      } finally {
+        this.cargando = false;
+      }
+    }
   }
-};
+}
 </script>
 
 <style scoped>
-/* CONTENEDOR PRINCIPAL CON TU NUEVA IMAGEN Y TAMAÑO AJUSTADO */
-.login-wrapper {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
+/* Contenedor principal: imagen centrada y sin estirarse desproporcionadamente */
+.login-container {
+  min-height: 100vh;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Capa de cobertura oscura para unificar el tono con la imagen de referencia */
+.login-overlay {
   display: flex;
   justify-content: center;
   align-items: center;
-  background-image: url('../assets/fondo.jpg'); 
-  
-  /* ESTA ES LA MAGIA PARA LA IMAGEN */
-  background-size: 100% 100%; /* Obliga a la imagen a caber en la pantalla entera */
-  background-position: center center;
-  background-attachment: fixed;
-  
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
+  min-height: 100vh;
+  background: rgba(11, 15, 25, 0.65);
+  padding: 20px;
 }
 
-/* FILTRO OSCURO SOBRE LA IMAGEN */
-.overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(15, 23, 42, 0.65); /* Tono azul oscuro semitransparente */
-  z-index: 1;
-}
-
-/* TARJETA CENTRAL (ESTILO CRISTAL) */
-.login-box {
-  position: relative;
-  z-index: 2; /* Para que quede por encima del filtro oscuro */
-  background: rgba(255, 255, 255, 0.1); /* Blanco muy transparente */
-  backdrop-filter: blur(12px); /* Efecto de desenfoque de cristal */
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
+/* Tarjeta con efecto Glassmorphism oscuro idéntico al original */
+.login-card {
+  background: rgba(30, 41, 59, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 40px;
+  border-radius: 16px;
   width: 100%;
-  max-width: 380px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  max-width: 400px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
 }
 
-.login-header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.login-header h1 {
-  color: #ffffff;
-  font-size: 2rem;
-  margin: 0 0 5px 0;
+.brand-title {
+  font-size: 1.6rem;
   font-weight: 700;
+  color: #ffffff;
   letter-spacing: 0.5px;
 }
 
-.login-header p {
-  color: #e2e8f0;
-  font-size: 1rem;
-  margin: 0;
-}
-
-/* INPUTS (CAJAS DE TEXTO) */
-.input-container {
-  position: relative;
-  margin-bottom: 20px;
-}
-
-.input-container input {
-  width: 100%;
-  box-sizing: border-box;
-  background: rgba(15, 23, 42, 0.4); /* Fondo oscuro transparente */
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 14px 45px 14px 16px; /* Espacio extra a la derecha para el ícono */
-  border-radius: 12px;
-  color: #ffffff;
-  font-size: 1rem;
-  outline: none;
-  transition: all 0.3s ease;
-}
-
-.input-container input::placeholder {
-  color: #94a3b8;
-}
-
-.input-container input:focus {
-  border-color: #facc15; /* Borde amarillo al hacer clic */
-  background: rgba(15, 23, 42, 0.6);
-  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.2);
-}
-
-.input-container .icon {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #94a3b8;
-  font-size: 1.1rem;
-  pointer-events: none;
-}
-
-/* OPCIONES (RECORDARME Y OLVIDASTE) */
-.options {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
+.brand-subtitle {
   font-size: 0.85rem;
+  color: #94a3b8;
+  margin-top: 2px;
 }
 
-.checkbox-container {
-  display: flex;
-  align-items: center;
-  color: #e2e8f0;
-  cursor: pointer;
+/* Estilos personalizados para los inputs traslúcidos estilo glass */
+.custom-input-group {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.checkbox-container input {
-  margin-right: 8px;
-  cursor: pointer;
+.custom-input {
+  background: transparent !important;
+  border: none !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  padding: 10px 14px;
 }
 
-.forgot-link {
-  color: #facc15;
-  text-decoration: none;
-  transition: color 0.2s;
+.custom-input::placeholder {
+  color: #64748b;
 }
 
-.forgot-link:hover {
-  color: #fef08a;
-  text-decoration: underline;
+.custom-icon {
+  background: transparent !important;
+  border: none !important;
+  color: #94a3b8;
 }
 
-/* BOTÓN INGRESAR */
-.btn-login {
-  width: 100%;
-  background-color: #facc15; /* Amarillo vibrante */
-  color: #0f172a; /* Texto oscuro para contrastar */
-  border: none;
-  padding: 14px;
-  border-radius: 12px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.2s, background-color 0.2s;
-}
-
-.btn-login:hover {
-  background-color: #eab308;
-  transform: translateY(-2px); /* Pequeño salto al pasar el mouse */
+.form-label {
+  font-weight: 500;
 }
 </style>

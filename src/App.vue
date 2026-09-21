@@ -3,21 +3,21 @@
     <!-- Si no está logueado, muestra el Login -->
     <Login v-if="!estaAutenticado" @login="iniciarSesion" />
     
-    <!-- Si ya está logueado, muestra el panel completo -->
-    <Dashboard v-else @logout="cerrarSesion" />
+    <!-- Si ya está logueado, muestra el panel completo (ahora llamado MainLayout) -->
+    <MainLayout v-else @logout="cerrarSesion" />
   </div>
 </template>
 
 <script>
 // Importamos nuestras dos pantallas principales
 import Login from './components/Login.vue'
-import Dashboard from './components/Dashboard.vue'
+import MainLayout from './components/MainLayout.vue' // <--- Actualizado aquí
 
 export default {
   name: 'App',
   components: {
     Login,
-    Dashboard
+    MainLayout // <--- Actualizado aquí
   },
   data() {
     return {

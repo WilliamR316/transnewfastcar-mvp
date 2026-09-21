@@ -1,278 +1,236 @@
 <template>
-  <div class="guardias-section">
-    <div class="header-section">
+  <div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="mb-4 d-flex justify-content-between align-items-end">
       <div>
-        <h2>Programación de Guardias</h2>
-        <p class="subtitle">Horario nocturno: 19:00 a 23:00 | Arrastra las unidades para reasignar turnos</p>
+        <h3 class="mb-1"><i class="bi bi-calendar-week text-primary me-2"></i>Programación de Guardias</h3>
+        <p class="text-muted small mb-0">Horario nocturno: 19:00 a 23:00 | Arrastra las unidades para reasignar turnos</p>
       </div>
-      <button class="btn btn-primary" @click="resetearSemana">🔄 Rotar Siguiente Semana</button>
+      <button class="btn btn-primary fw-bold" @click="rotarTurnos">
+        <i class="bi bi-arrow-repeat me-1"></i> Rotar Siguiente Semana
+      </button>
     </div>
 
-    <!-- CALENDARIO DE LA SEMANA (ZONAS DE DROP) -->
-    <div class="calendario-grid">
-      <div 
-        v-for="(dia, index) in semana" 
-        :key="dia.nombre"
-        class="dia-card card"
-        @dragover.prevent
-        @dragenter.prevent="zonaActiva = index"
-        @dragleave="zonaActiva = null"
-        @drop="soltarUnidad(index)"
-        :class="{ 'drop-active': zonaActiva === index }"
-      >
-        <div class="dia-header">
-          <h3>{{ dia.nombre }}</h3>
-          <span class="fecha">{{ dia.fecha }}</span>
-        </div>
-        
-        <div class="dia-body">
-          <div v-if="dia.unidades.length === 0" class="empty-slot">Sin guardia</div>
-          
-          <!-- CARRITOS ASIGNADOS A ESTE DÍA -->
+    <!-- Contenedor de los 7 días de la semana -->
+    <div class="row g-3 mb-4 flex-nowrap overflow-auto pb-2">
+      <div v-for="(dia, index) in diasSemana" :key="dia.key" class="col" style="min-width: 150px;">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header bg-white border-0 text-center pt-3 pb-1">
+            <h6 class="fw-bold mb-0">{{ dia.nombre }}</h6>
+            <small class="text-muted" style="font-size: 0.7rem;">{{ fechasSemana[index] }}</small>
+          </div>
+          <!-- Zona donde se sueltan los elementos (Dropzone) -->
           <div 
-            v-for="unidad in dia.unidades" 
-            :key="unidad.id"
-            class="taxi-token asignado"
-            draggable="true"
-            @dragstart="iniciarArrastre(unidad, index)"
+            class="card-body p-2 d-flex flex-column gap-2 zona-drop"
+            @dragover.prevent
+            @dragenter.prevent
+            @drop="onDrop($event, dia.key)"
           >
-            <span class="taxi-icon">🚕</span>
-            <span class="taxi-numero">#{{ unidad.id }}</span>
+            <div 
+              v-for="unidad in unidadesPorDia(dia.key)" :key="unidad.id"
+              class="unidad-pill bg-dark text-white rounded-pill shadow-sm cursor-grab"
+              draggable="true"
+              @dragstart="onDragStart($event, unidad.id, dia.key)"
+            >
+              <span class="text-warning me-1">🚕</span>
+              <span class="fw-bold">#{{ String(unidad.numero).padStart(2, '0') }}</span>
+            </div>
+            
+            <div v-if="unidadesPorDia(dia.key).length === 0" class="text-center text-muted py-3 zona-vacia rounded">
+              <small style="font-size: 0.7rem;">Arrastra aquí</small>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- BANCA DE UNIDADES DISPONIBLES (ZONA DE DROP) -->
-    <div 
-      class="banca-container card mt-4"
-      @dragover.prevent
-      @dragenter.prevent="zonaActiva = 'banca'"
-      @dragleave="zonaActiva = null"
-      @drop="soltarUnidad('banca')"
-      :class="{ 'drop-active': zonaActiva === 'banca' }"
-    >
-      <div class="banca-header">
-        <h3>🚙 Unidades Disponibles (Descanso / Sin guardia esta semana)</h3>
-        <span class="badge">{{ unidadesBanca.length }} unidades</span>
+    <!-- Contenedor de Unidades Disponibles -->
+    <div class="card shadow-sm border-0 mt-2">
+      <div class="card-header bg-white border-0 pt-3 pb-2 d-flex align-items-center">
+        <i class="bi bi-truck-front-fill text-primary me-2"></i>
+        <h6 class="fw-bold mb-0 me-3">Unidades Disponibles (Descanso / Sin guardia esta semana)</h6>
+        <span class="badge bg-primary rounded-pill bg-opacity-10 text-primary">{{ unidadesLibres.length }} unidades</span>
       </div>
-      
-      <div class="banca-grid">
-        <!-- CARRITOS EN LA BANCA -->
+      <!-- Zona Drop para regresar unidades a "Descanso" -->
+      <div 
+        class="card-body pt-1 pb-3 d-flex flex-wrap gap-2 zona-drop"
+        style="min-height: 100px;"
+        @dragover.prevent
+        @dragenter.prevent
+        @drop="onDrop($event, 'descanso')"
+      >
         <div 
-          v-for="unidad in unidadesBanca" 
-          :key="unidad.id"
-          class="taxi-token libre"
+          v-for="unidad in unidadesLibres" :key="unidad.id"
+          class="unidad-pill bg-white border border-light-subtle text-dark rounded-pill shadow-sm cursor-grab"
           draggable="true"
-          @dragstart="iniciarArrastre(unidad, 'banca')"
+          @dragstart="onDragStart($event, unidad.id, 'descanso')"
         >
-          <span class="taxi-icon">🚖</span>
-          <span class="taxi-numero">#{{ unidad.id }}</span>
+          <span class="text-warning me-1">🚕</span>
+          <span class="fw-bold">#{{ String(unidad.numero).padStart(2, '0') }}</span>
         </div>
-        <div v-if="unidadesBanca.length === 0" class="empty-slot w-100 text-center">
-          Todas las unidades tienen guardia asignada.
+        
+        <div v-if="unidadesLibres.length === 0 && unidades.length > 0" class="w-100 text-center text-muted py-3">
+          <small>Todas las unidades tienen turno asignado.</small>
+        </div>
+        <div v-if="unidades.length === 0" class="w-100 text-center text-danger py-3">
+          <small>No hay unidades registradas en la Flota. Ve a "Flota y Unidades" para agregar conductores.</small>
         </div>
       </div>
     </div>
+
   </div>
 </template>
 
 <script>
+import { db } from '../firebase'
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore'
+
 export default {
-  name: 'Guardias',
+  name: 'TurnosView',
   data() {
     return {
-      unidadArrastrada: null,
-      origenArrastre: null, // 'banca' o el índice del día (0 al 6)
-      zonaActiva: null, // Para iluminar la caja cuando pasas el mouse por encima
-      
-      semana: [
-        { nombre: 'Lunes', fecha: '14 Sept', unidades: [] },
-        { nombre: 'Martes', fecha: '15 Sept', unidades: [] },
-        { nombre: 'Miércoles', fecha: '16 Sept', unidades: [] },
-        { nombre: 'Jueves', fecha: '17 Sept', unidades: [] },
-        { nombre: 'Viernes', fecha: '18 Sept', unidades: [] },
-        { nombre: 'Sábado', fecha: '19 Sept', unidades: [] },
-        { nombre: 'Domingo', fecha: '20 Sept', unidades: [] }
+      unidades: [],
+      turnosId: 'semanaActual', 
+      diasSemana: [
+        { key: 'lunes', nombre: 'Lunes' },
+        { key: 'martes', nombre: 'Martes' },
+        { key: 'miercoles', nombre: 'Miércoles' },
+        { key: 'jueves', nombre: 'Jueves' },
+        { key: 'viernes', nombre: 'Viernes' },
+        { key: 'sabado', nombre: 'Sábado' },
+        { key: 'domingo', nombre: 'Domingo' }
       ],
-      unidadesBanca: []
-    };
+      turnos: {
+        lunes: [], martes: [], miercoles: [], jueves: [], viernes: [], sabado: [], domingo: []
+      }
+    }
   },
-  created() {
-    this.generarFlota();
+  computed: {
+    fechasSemana() {
+      const fechas = [];
+      const hoy = new Date();
+      const diaSemana = hoy.getDay() === 0 ? 7 : hoy.getDay(); 
+      
+      for (let i = 1; i <= 7; i++) {
+        const fecha = new Date(hoy);
+        fecha.setDate(hoy.getDate() - diaSemana + i);
+        fechas.push(fecha.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' }));
+      }
+      return fechas;
+    },
+    unidadesLibres() {
+      const idsAsignados = new Set([
+        ...this.turnos.lunes, ...this.turnos.martes, ...this.turnos.miercoles, 
+        ...this.turnos.jueves, ...this.turnos.viernes, ...this.turnos.sabado, ...this.turnos.domingo
+      ]);
+      
+      return this.unidades
+        .filter(u => !idsAsignados.has(u.id))
+        .sort((a, b) => Number(a.numero) - Number(b.numero));
+    }
+  },
+  mounted() {
+    this.obtenerUnidades();
+    this.obtenerTurnos();
   },
   methods: {
-    generarFlota() {
-      // Creamos automáticamente las 31 unidades
-      let flotaCompleta = [];
-      for (let i = 1; i <= 31; i++) {
-        let idFormateado = i < 10 ? '0' + i : i.toString();
-        flotaCompleta.push({ id: idFormateado });
-      }
-
-      // Asignamos 2 unidades por día (14 en total para la semana)
-      let unidadActual = 0;
-      this.semana.forEach(dia => {
-        dia.unidades = []; // Limpiamos
-        if (unidadActual < flotaCompleta.length) dia.unidades.push(flotaCompleta[unidadActual++]);
-        if (unidadActual < flotaCompleta.length) dia.unidades.push(flotaCompleta[unidadActual++]);
+    obtenerUnidades() {
+      onSnapshot(collection(db, "unidades"), (querySnapshot) => {
+        const data = [];
+        querySnapshot.forEach((doc) => { data.push({ id: doc.id, ...doc.data() }); });
+        this.unidades = data;
       });
-
-      // El resto de los carros (del 15 al 31) se van a la banca
-      this.unidadesBanca = flotaCompleta.slice(14);
     },
-    
-    // --- LÓGICA DE DRAG & DROP ---
-    iniciarArrastre(unidad, origen) {
-      this.unidadArrastrada = unidad;
-      this.origenArrastre = origen;
+    async obtenerTurnos() {
+      const docRef = doc(db, "turnos", this.turnosId);
+      onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+          this.turnos = docSnap.data();
+        } else {
+          this.guardarTurnosEnFirebase();
+        }
+      });
     },
-    
-    soltarUnidad(destino) {
-      this.zonaActiva = null; // Apagamos el brillo
-      if (!this.unidadArrastrada) return;
-      if (this.origenArrastre === destino) return; // Si lo soltó en el mismo lugar, no hacer nada
-
-      // 1. SACAR AL CARRITO DE DONDE ESTABA
-      if (this.origenArrastre === 'banca') {
-        this.unidadesBanca = this.unidadesBanca.filter(u => u.id !== this.unidadArrastrada.id);
-      } else {
-        this.semana[this.origenArrastre].unidades = this.semana[this.origenArrastre].unidades.filter(u => u.id !== this.unidadArrastrada.id);
+    unidadesPorDia(diaKey) {
+      if (!this.turnos[diaKey]) return [];
+      return this.turnos[diaKey]
+        .map(id => this.unidades.find(u => u.id === id))
+        .filter(u => u !== undefined); 
+    },
+    onDragStart(event, unidadId, origenKey) {
+      event.dataTransfer.setData('unidadId', unidadId);
+      event.dataTransfer.setData('origenKey', origenKey);
+      event.dataTransfer.effectAllowed = 'move';
+    },
+    onDrop(event, destinoKey) {
+      const unidadId = event.dataTransfer.getData('unidadId');
+      const origenKey = event.dataTransfer.getData('origenKey');
+      if (!unidadId || origenKey === destinoKey) return;
+      if (origenKey !== 'descanso') {
+        this.turnos[origenKey] = this.turnos[origenKey].filter(id => id !== unidadId);
       }
-
-      // 2. METER AL CARRITO DONDE LO SOLTARON
-      if (destino === 'banca') {
-        this.unidadesBanca.push(this.unidadArrastrada);
-        // Ordenamos la banca numéricamente para que no se desordene
-        this.unidadesBanca.sort((a, b) => parseInt(a.id) - parseInt(b.id));
-      } else {
-        this.semana[destino].unidades.push(this.unidadArrastrada);
+      if (destinoKey !== 'descanso') {
+        if (!this.turnos[destinoKey].includes(unidadId)) {
+          this.turnos[destinoKey].push(unidadId);
+        }
       }
-
-      // Limpiamos la memoria del arrastre
-      this.unidadArrastrada = null;
-      this.origenArrastre = null;
+      this.guardarTurnosEnFirebase();
     },
-    
-    resetearSemana() {
-      if(confirm('¿Deseas generar la rotación para la siguiente semana automáticamente?')) {
-        // Aquí iría la lógica matemática para continuar del 15 en adelante, 
-        // pero por ahora reiniciamos a la vista por defecto de prueba.
-        this.generarFlota();
+    async guardarTurnosEnFirebase() {
+      try {
+        await setDoc(doc(db, "turnos", this.turnosId), this.turnos);
+      } catch (e) {
+        console.error("Error al guardar turnos: ", e);
+      }
+    },
+    async rotarTurnos() {
+      if(confirm("¿Deseas rotar todos los turnos asignados hacia el día siguiente?")) {
+        const nuevosTurnos = {
+          lunes: [...this.turnos.domingo],
+          martes: [...this.turnos.lunes],
+          miercoles: [...this.turnos.martes],
+          jueves: [...this.turnos.miercoles],
+          viernes: [...this.turnos.jueves],
+          sabado: [...this.turnos.viernes],
+          domingo: [...this.turnos.sabado]
+        };
+        this.turnos = nuevosTurnos;
+        await this.guardarTurnosEnFirebase();
       }
     }
   }
-};
+}
 </script>
 
 <style scoped>
-.header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-.header-section h2 { font-size: 1.5rem; color: #0f172a; margin-bottom: 4px; }
-.subtitle { color: #64748b; font-size: 0.95rem; }
-.mt-4 { margin-top: 25px; }
-.w-100 { width: 100%; }
-.text-center { text-align: center; }
-
-.btn { padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
-.btn-primary { background-color: #3b82f6; color: white; }
-.btn-primary:hover { background-color: #2563eb; transform: translateY(-1px); }
-
-.card { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 2px solid #f1f5f9; transition: border-color 0.2s; }
-.drop-active { border-color: #3b82f6 !important; background-color: #f8fafc; }
-
-/* CALENDARIO DE 7 DÍAS */
-.calendario-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 15px;
+.cursor-grab {
+  cursor: grab;
+  transition: transform 0.2s, box-shadow 0.2s;
+  user-select: none;
 }
-
-.dia-card {
-  display: flex;
-  flex-direction: column;
-  min-height: 180px;
+.cursor-grab:active {
+  cursor: grabbing;
+  transform: scale(0.95);
 }
-
-.dia-header {
-  background: #f8fafc;
-  padding: 12px;
-  border-bottom: 1px solid #e2e8f0;
-  text-align: center;
-  border-radius: 14px 14px 0 0;
-}
-.dia-header h3 { margin: 0; font-size: 1.05rem; color: #1e293b; }
-.dia-header .fecha { font-size: 0.8rem; color: #64748b; }
-
-.dia-body {
-  padding: 15px 10px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: center;
-}
-
-.empty-slot {
-  color: #94a3b8;
-  font-size: 0.85rem;
-  border: 1px dashed #cbd5e1;
-  padding: 10px;
+.zona-drop {
   border-radius: 8px;
-  width: 100%;
-  box-sizing: border-box;
-  text-align: center;
+  transition: background-color 0.2s;
+}
+.zona-drop:hover {
+  background-color: rgba(99, 102, 241, 0.05); 
+}
+.zona-vacia {
+  border: 1px dashed #ccc;
+  background-color: #f8f9fa;
 }
 
-/* FICHAS DE LOS TAXIS (TOKENS) */
-.taxi-token {
-  display: flex;
+/* AQUÍ ESTÁ LA MAGIA PARA LAS PASTILLAS */
+.unidad-pill {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 20px;
-  font-weight: 700;
-  cursor: grab;
-  width: 90%;
-  box-sizing: border-box;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-.taxi-token:active { cursor: grabbing; transform: scale(0.95); }
-.taxi-token:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-
-.taxi-icon { font-size: 1.2rem; }
-.taxi-numero { font-size: 1.1rem; }
-
-/* Colores según dónde esté el taxi */
-.taxi-token.asignado {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  color: #facc15;
-  border: 1px solid #334155;
-}
-.taxi-token.libre {
-  background: white;
-  color: #475569;
-  border: 1px solid #cbd5e1;
-}
-
-/* ZONA DE BANCA */
-.banca-container { padding: 20px; min-height: 150px; }
-.banca-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
-.banca-header h3 { margin: 0; font-size: 1.2rem; color: #1e293b; }
-.badge { background: #eff6ff; color: #2563eb; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
-
-.banca-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.banca-grid .taxi-token { width: auto; padding: 8px 15px; }
-
-@media (max-width: 1200px) {
-  .calendario-grid { grid-template-columns: repeat(4, 1fr); }
-}
-@media (max-width: 768px) {
-  .calendario-grid { grid-template-columns: repeat(2, 1fr); }
+  min-width: 90px;      /* Garantiza que siempre sea rectangular */
+  height: 40px;         /* Altura fija para que todas se vean idénticas */
+  white-space: nowrap;  /* Evita que el texto se rompa en dos líneas */
 }
 </style>

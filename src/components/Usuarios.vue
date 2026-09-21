@@ -36,7 +36,6 @@
         <table>
           <thead>
             <tr>
-              <th>ID</th>
               <th>Nombre Completo</th>
               <th>Usuario de Acceso</th>
               <th>Rol en el Sistema</th>
@@ -46,7 +45,6 @@
           </thead>
           <tbody>
             <tr v-for="user in usuarios" :key="user.id">
-              <td><strong>#{{ user.id }}</strong></td>
               <td class="fw-500">{{ user.nombre }}</td>
               <td><span class="username-tag">@{{ user.usuario }}</span></td>
               <td>
@@ -71,8 +69,8 @@
               </td>
             </tr>
             <tr v-if="usuarios.length === 0">
-              <td colspan="6" class="text-center" style="padding: 30px; color: #64748b;">
-                No hay usuarios registrados.
+              <td colspan="5" class="text-center" style="padding: 30px; color: #64748b;">
+                No hay usuarios registrados en la base de datos.
               </td>
             </tr>
           </tbody>
@@ -137,11 +135,14 @@
 </template>
 
 <script>
+import { db } from '../firebase'
+import { collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore'
+
 export default {
   name: 'Usuarios',
   data() {
     return {
-      rolUsuarioActual: 'admin', // Simula quién está usando el sistema ahora
+      rolUsuarioActual: 'admin', 
       mostrarModal: false,
       modoEdicion: false,
       usuarioIdAEditar: null,
@@ -150,14 +151,22 @@ export default {
         nombre: '', usuario: '', password: '', rol: 'operador', activo: true 
       },
       
-      usuarios: [
-        { id: 1, nombre: 'William Rojas', usuario: 'admin', rol: 'admin', activo: true },
-        { id: 2, nombre: 'Ana Salazar', usuario: 'ana.operador', rol: 'operador', activo: true },
-        { id: 3, nombre: 'Pedro Ramírez', usuario: 'pedro.noche', rol: 'operador', activo: false }
-      ]
+      usuarios: []
     };
   },
+  mounted() {
+    this.obtenerUsuarios();
+  },
   methods: {
+    obtenerUsuarios() {
+      onSnapshot(collection(db, "usuarios"), (querySnapshot) => {
+        const data = [];
+        querySnapshot.forEach((docSnap) => {
+          data.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        this.usuarios = data.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      });
+    },
     contarPorRol(rol) {
       return this.usuarios.filter(u => u.rol === rol).length;
     },
@@ -170,57 +179,69 @@ export default {
     editarUsuario(user) {
       this.modoEdicion = true;
       this.usuarioIdAEditar = user.id;
-      // Clonamos sin la contraseña por seguridad
-      this.formUsuario = { ...user, password: '' };
+      this.formUsuario = { 
+        nombre: user.nombre, 
+        usuario: user.usuario, 
+        password: '', 
+        rol: user.rol, 
+        activo: user.activo 
+      };
       this.mostrarModal = true;
     },
-    eliminarUsuario(id) {
+    async eliminarUsuario(id) {
       if (this.rolUsuarioActual !== 'admin') {
         alert('Acceso Denegado: Solo otro Administrador puede eliminar usuarios.');
         return;
       }
-      if (id === 1) {
-        alert('Acción Denegada: No puedes eliminar al administrador principal del sistema.');
-        return;
-      }
       if (confirm(`¿Estás seguro de que deseas eliminar este usuario? Perderá el acceso al panel.`)) {
-        this.usuarios = this.usuarios.filter(u => u.id !== id);
+        try {
+          await deleteDoc(doc(db, "usuarios", id));
+        } catch (e) {
+          console.error("Error al eliminar usuario: ", e);
+        }
       }
     },
     cerrarModal() {
       this.mostrarModal = false;
     },
-    guardarUsuario() {
-      if (this.modoEdicion) {
-        const index = this.usuarios.findIndex(u => u.id === this.usuarioIdAEditar);
-        if (index !== -1) {
-          // Si el usuario escribió una nueva contraseña, en el futuro aquí se encriptaría antes de enviar a Firebase
-          this.usuarios[index] = { 
-            ...this.usuarios[index], 
+    async guardarUsuario() {
+      try {
+        // Limpiamos y convertimos el nombre de usuario a minúsculas automáticamente
+        const usuarioLimpio = this.formUsuario.usuario.trim().toLowerCase();
+
+        if (this.modoEdicion) {
+          const userRef = doc(db, "usuarios", this.usuarioIdAEditar);
+          const datosActualizados = {
             nombre: this.formUsuario.nombre,
-            usuario: this.formUsuario.usuario,
+            usuario: usuarioLimpio,
             rol: this.formUsuario.rol,
             activo: this.formUsuario.activo
           };
-        }
-      } else {
-        // Validar usuario repetido
-        const repetido = this.usuarios.find(u => u.usuario === this.formUsuario.usuario);
-        if (repetido) {
-          alert('Este nombre de usuario de acceso ya está en uso. Por favor, elige otro.');
-          return;
-        }
+          if (this.formUsuario.password) {
+            datosActualizados.password = this.formUsuario.password;
+          }
+          await updateDoc(userRef, datosActualizados);
+        } else {
+          // Validar usuario repetido comparando en minúsculas
+          const repetido = this.usuarios.find(u => u.usuario.toLowerCase() === usuarioLimpio);
+          if (repetido) {
+            alert('Este nombre de usuario de acceso ya está en uso. Por favor, elige otro.');
+            return;
+          }
 
-        const nuevoId = this.usuarios.length > 0 ? Math.max(...this.usuarios.map(u => u.id)) + 1 : 1;
-        this.usuarios.push({
-          id: nuevoId,
-          nombre: this.formUsuario.nombre,
-          usuario: this.formUsuario.usuario,
-          rol: this.formUsuario.rol,
-          activo: this.formUsuario.activo
-        });
+          await addDoc(collection(db, "usuarios"), {
+            nombre: this.formUsuario.nombre,
+            usuario: usuarioLimpio,
+            password: this.formUsuario.password,
+            rol: this.formUsuario.rol,
+            activo: this.formUsuario.activo,
+            fechaCreacion: new Date().toISOString()
+          });
+        }
+        this.cerrarModal();
+      } catch (e) {
+        console.error("Error al guardar usuario: ", e);
       }
-      this.cerrarModal();
     }
   }
 };

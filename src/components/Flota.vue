@@ -1,328 +1,265 @@
 <template>
-  <div class="flota-section">
-    <div class="header-section">
-      <h2>Gestión de Flota y Unidades</h2>
-      <button class="btn btn-primary" @click="abrirModalNuevo">➕ Nueva Unidad</button>
+  <div class="container-fluid mt-4">
+    <!-- Header y Controles -->
+    <div class="row mb-4 align-items-center">
+      <div class="col-md-6">
+        <h2 class="mb-0"><i class="bi bi-car-front-fill me-2"></i>Gestión de Flota</h2>
+      </div>
+      <div class="col-md-6 d-flex justify-content-end gap-2">
+        <select v-model="filtroEstado" class="form-select w-auto">
+          <option value="">Todos los estados</option>
+          <option value="Disponible">Disponible</option>
+          <option value="Ocupado">Ocupado</option>
+          <option value="Mantenimiento">Mantenimiento</option>
+          <option value="Fuera de Servicio">Fuera de Servicio</option>
+        </select>
+        <button class="btn btn-primary" @click="abrirModalNuevo">
+          <i class="bi bi-plus-circle me-1"></i> Nueva Unidad
+        </button>
+      </div>
     </div>
 
-    <!-- TARJETAS DE MÉTRICAS -->
-    <section class="metrics-grid">
-      <div class="card metric">
-        <div class="metric-icon blue">📊</div>
-        <div class="metric-info">
-          <h3>Total Flota</h3>
-          <span class="metric-number">{{ vehiculos.length }}</span>
-        </div>
-      </div>
-      <div class="card metric">
-        <div class="metric-icon green">✅</div>
-        <div class="metric-info">
-          <h3>T1 - Disponibles</h3>
-          <span class="metric-number text-success">{{ contarPorEstado('T1 - Disponible') }}</span>
-        </div>
-      </div>
-      <div class="card metric">
-        <div class="metric-icon orange">🚕</div>
-        <div class="metric-info">
-          <h3>T4 - En Carrera</h3>
-          <span class="metric-number text-warning">{{ contarPorEstado('T4 - En Carrera') }}</span>
-        </div>
-      </div>
-      <div class="card metric">
-        <div class="metric-icon red">🔧</div>
-        <div class="metric-info">
-          <h3>T5 - Mantenimiento</h3>
-          <span class="metric-number text-danger">{{ contarPorEstado('T5 - Mantenimiento') }}</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- TABLA DE FLOTA -->
-    <section class="card table-container">
-      <div class="table-responsive">
-        <table>
-          <thead>
-            <tr>
-              <th>Unidad</th>
-              <th>Conductor</th>
-              <th>Placa / Vehículo</th>
-              <th>Estado Actual (Cambio Rápido)</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="carro in vehiculos" :key="carro.id">
-              <td><span class="unidad-id">#{{ carro.id }}</span></td>
-              <td class="fw-500">{{ carro.conductor }}</td>
-              <td>
-                <div class="placa">{{ carro.placa }}</div>
-                <div class="text-xs text-muted mt-1">{{ carro.marca }}</div>
-              </td>
-              
-              <!-- NUEVA LISTA DESPLEGABLE DIRECTO EN LA TABLA -->
-              <td>
-                <select 
-                  v-model="carro.estado" 
-                  :class="['estado-select', claseEstado(carro.estado)]"
-                >
-                  <option value="T1 - Disponible">✅ T1 - Disponible</option>
-                  <option value="T4 - En Carrera">🚕 T4 - En Carrera</option>
-                  <option value="T5 - Mantenimiento">🔧 T5 - Mantenimiento</option>
-                  <option value="T6 - Fuera de Serv.">💤 T6 - Fuera de Serv.</option>
-                </select>
-              </td>
-
-              <td>
-                <div class="actions-group">
-                  <button class="btn btn-outline btn-edit" @click="editarVehiculo(carro)" title="Editar Unidad">
-                    ✏️
+    <!-- Tabla de Unidades -->
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-striped mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>Unidad</th>
+                <th>Placa</th>
+                <th>Chofer</th>
+                <th>Teléfono</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="unidadesFiltradas.length === 0">
+                <td colspan="6" class="text-center py-4 text-muted">
+                  No hay unidades registradas o que coincidan con el filtro.
+                </td>
+              </tr>
+              <tr v-for="unidad in unidadesFiltradas" :key="unidad.id">
+                <!-- Aquí aplicamos el padStart para asegurar siempre 2 dígitos (ej: 01, 02) -->
+                <td class="fw-bold">#{{ String(unidad.numero).padStart(2, '0') }}</td>
+                <td class="text-uppercase">{{ unidad.placa }}</td>
+                <td>{{ unidad.chofer }}</td>
+                <td>{{ unidad.telefono }}</td>
+                <td>
+                  <span :class="getBadgeClass(unidad.estado)">
+                    {{ unidad.estado }}
+                  </span>
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-outline-primary me-2" @click="editarUnidad(unidad)" title="Editar">
+                    <i class="bi bi-pencil-square"></i>
                   </button>
-                  <button class="btn btn-outline btn-delete" @click="eliminarVehiculo(carro.id)" title="Eliminar Unidad">
-                    🗑️
+                  <button class="btn btn-sm btn-outline-danger" @click="eliminarUnidad(unidad.id)" title="Eliminar">
+                    <i class="bi bi-trash"></i>
                   </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para Nueva/Editar Unidad -->
+    <div v-if="showModal" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">{{ editando ? 'Editar Unidad' : 'Registrar Nueva Unidad' }}</h5>
+            <button type="button" class="btn-close" @click="cerrarModal"></button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="guardarUnidad">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label">N° de Unidad</label>
+                  <!-- Cambiado a type="text" para que no borre los ceros -->
+                  <input type="text" class="form-control" v-model="nuevaUnidad.numero" required>
                 </div>
-              </td>
-            </tr>
-            <tr v-if="vehiculos.length === 0">
-              <td colspan="5" class="text-center" style="padding: 30px; color: #64748b;">
-                No hay unidades registradas en la flota.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+                <div class="col-md-4">
+                  <label class="form-label">Placa</label>
+                  <input type="text" class="form-control" v-model="nuevaUnidad.placa" required style="text-transform: uppercase;">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Estado</label>
+                  <select class="form-select" v-model="nuevaUnidad.estado" required>
+                    <option value="Disponible">Disponible</option>
+                    <option value="Ocupado">Ocupado</option>
+                    <option value="Mantenimiento">Mantenimiento</option>
+                    <option value="Fuera de Servicio">Fuera de Servicio</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Nombre del Chofer</label>
+                  <input type="text" class="form-control" v-model="nuevaUnidad.chofer" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Teléfono del Chofer</label>
+                  <input type="tel" class="form-control" v-model="nuevaUnidad.telefono" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Fecha de Ingreso</label>
+                  <input type="date" class="form-control" v-model="nuevaUnidad.fechaIngreso" required>
+                </div>
 
-    <!-- VENTANA MODAL (Crear y Editar) -->
-    <div class="modal-overlay" v-if="mostrarModal" @click.self="cerrarModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>{{ modoEdicion ? '✏️ Editar Unidad' : '➕ Registrar Nueva Unidad' }}</h3>
-          <button class="close-btn" @click="cerrarModal">✖</button>
+                <!-- Sección de Contacto de Emergencia dividida -->
+                <div class="col-12 mt-4 mb-2">
+                  <h6 class="text-muted border-bottom pb-2"><i class="bi bi-heart-pulse text-danger me-2"></i>Datos de Emergencia</h6>
+                </div>
+                <div class="col-md-5">
+                  <label class="form-label">Nombre del Contacto</label>
+                  <input type="text" class="form-control" v-model="nuevaUnidad.contactoEmergenciaNombre" placeholder="Nombre completo">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Parentesco</label>
+                  <input type="text" class="form-control" v-model="nuevaUnidad.contactoEmergenciaParentesco" placeholder="Ej. Esposa, Hijo">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Teléfono de Emergencia</label>
+                  <input type="tel" class="form-control" v-model="nuevaUnidad.contactoEmergenciaTelefono" placeholder="099...">
+                </div>
+
+                <div class="col-12 mt-4">
+                  <label class="form-label">Observaciones</label>
+                  <textarea class="form-control" v-model="nuevaUnidad.observaciones" rows="2"></textarea>
+                </div>
+              </div>
+              <div class="modal-footer mt-4 pb-0 pe-0">
+                <button type="button" class="btn btn-secondary" @click="cerrarModal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                  {{ editando ? 'Actualizar Unidad' : 'Guardar Unidad' }}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-        
-        <form @submit.prevent="guardarVehiculo">
-          <div class="form-row">
-            <div class="form-group">
-              <label for="id_unidad">Número de Unidad (#) *</label>
-              <input type="number" id="id_unidad" v-model="formVehiculo.id" required placeholder="Ej. 106" />
-            </div>
-            
-            <div class="form-group">
-              <label for="conductor">Nombre del Conductor *</label>
-              <input type="text" id="conductor" v-model="formVehiculo.conductor" required placeholder="Ej. Carlos Mendoza" />
-            </div>
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group">
-              <label for="placa">Placa *</label>
-              <input type="text" id="placa" v-model="formVehiculo.placa" required placeholder="Ej. ABC-1234" style="text-transform: uppercase;" />
-            </div>
-            
-            <div class="form-group">
-              <label for="marca">Marca y Modelo</label>
-              <input type="text" id="marca" v-model="formVehiculo.marca" placeholder="Ej. Kia Rio 2023" />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="estado">Estado Operativo Inicial *</label>
-            <select id="estado" v-model="formVehiculo.estado" required>
-              <option value="T1 - Disponible">✅ T1 - Disponible</option>
-              <option value="T4 - En Carrera">🚕 T4 - En Carrera</option>
-              <option value="T5 - Mantenimiento">🔧 T5 - Mantenimiento</option>
-              <option value="T6 - Fuera de Serv.">💤 T6 - Fuera de Servicio</option>
-            </select>
-          </div>
-
-          <div class="modal-actions">
-            <button type="button" class="btn btn-outline" @click="cerrarModal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">
-              {{ modoEdicion ? 'Actualizar Unidad' : 'Guardar Unidad' }}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import { db } from '../firebase'
+import { collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore'
+
 export default {
-  name: 'Flota',
+  name: 'FlotaView',
   data() {
     return {
-      rolUsuario: 'admin', 
-      mostrarModal: false,
-      modoEdicion: false,
-      vehiculoIdAEditar: null,
-      
-      formVehiculo: { 
-        id: '', conductor: '', placa: '', marca: '', estado: 'T1 - Disponible' 
-      },
-      
-      // Actualizamos los datos de ejemplo con los nuevos códigos
-      vehiculos: [
-        { id: 101, conductor: 'Carlos Mendoza', placa: 'ABC-1234', marca: 'Kia Rio', estado: 'T1 - Disponible' },
-        { id: 102, conductor: 'Luis Paredes', placa: 'GHE-5678', marca: 'Hyundai Accent', estado: 'T4 - En Carrera' },
-        { id: 103, conductor: 'Ana Salazar', placa: 'PBA-9012', marca: 'Chevrolet Sail', estado: 'T1 - Disponible' },
-        { id: 104, conductor: 'Jorge Loor', placa: 'OBA-3456', marca: 'Nissan Versa', estado: 'T5 - Mantenimiento' },
-        { id: 105, conductor: 'William Rojas', placa: 'XTR-9988', marca: 'Toyota Yaris', estado: 'T6 - Fuera de Serv.' }
-      ]
-    };
+      unidades: [],
+      filtroEstado: '',
+      showModal: false,
+      editando: false,
+      unidadEditarId: null,
+      nuevaUnidad: {
+        numero: '',
+        placa: '',
+        chofer: '',
+        telefono: '',
+        contactoEmergenciaNombre: '',
+        contactoEmergenciaParentesco: '',
+        contactoEmergenciaTelefono: '',
+        observaciones: '',
+        estado: 'Disponible',
+        fechaIngreso: ''
+      }
+    }
+  },
+  computed: {
+    unidadesFiltradas() {
+      if (!this.filtroEstado) return this.unidades;
+      return this.unidades.filter(u => u.estado === this.filtroEstado);
+    }
+  },
+  mounted() {
+    this.obtenerUnidades();
   },
   methods: {
-    contarPorEstado(estado) {
-      return this.vehiculos.filter(v => v.estado === estado).length;
-    },
-    claseEstado(estado) {
-      if (estado === 'T1 - Disponible') return 'badge-success';
-      if (estado === 'T4 - En Carrera') return 'badge-warning';
-      if (estado === 'T5 - Mantenimiento') return 'badge-danger';
-      return 'badge-dark'; // Para T6 o cualquier otro
-    },
     abrirModalNuevo() {
-      this.modoEdicion = false;
-      this.vehiculoIdAEditar = null;
-      const proximoId = this.vehiculos.length > 0 ? Math.max(...this.vehiculos.map(v => v.id)) + 1 : 101;
-      
-      this.formVehiculo = { id: proximoId, conductor: '', placa: '', marca: '', estado: 'T1 - Disponible' };
-      this.mostrarModal = true;
-    },
-    editarVehiculo(carro) {
-      this.modoEdicion = true;
-      this.vehiculoIdAEditar = carro.id;
-      this.formVehiculo = { ...carro };
-      this.mostrarModal = true;
-    },
-    eliminarVehiculo(id) {
-      if (this.rolUsuario !== 'admin') {
-        alert('Acceso Denegado: Solo el Administrador puede eliminar unidades.');
-        return;
-      }
-      if (confirm(`¿Estás seguro de que deseas eliminar la unidad #${id} de la flota?`)) {
-        this.vehiculos = this.vehiculos.filter(v => v.id !== id);
-      }
+      this.editando = false;
+      this.unidadEditarId = null;
+      this.nuevaUnidad = {
+        numero: '', placa: '', chofer: '', telefono: '',
+        contactoEmergenciaNombre: '', contactoEmergenciaParentesco: '', contactoEmergenciaTelefono: '',
+        observaciones: '', estado: 'Disponible',
+        fechaIngreso: new Date().toISOString().split('T')[0]
+      };
+      this.showModal = true;
     },
     cerrarModal() {
-      this.mostrarModal = false;
+      this.showModal = false;
     },
-    guardarVehiculo() {
-      this.formVehiculo.placa = this.formVehiculo.placa.toUpperCase();
-      const idIngresado = parseInt(this.formVehiculo.id);
-
-      if (this.modoEdicion) {
-        const repetido = this.vehiculos.find(v => v.id === idIngresado && v.id !== this.vehiculoIdAEditar);
-        if (repetido) {
-          alert(`El número de unidad #${idIngresado} ya pertenece al conductor ${repetido.conductor}. Usa otro número.`);
-          return;
-        }
-
-        const index = this.vehiculos.findIndex(v => v.id === this.vehiculoIdAEditar);
-        if (index !== -1) {
-          this.vehiculos[index] = { ...this.vehiculos[index], ...this.formVehiculo, id: idIngresado };
-        }
-      } else {
-        const repetido = this.vehiculos.find(v => v.id === idIngresado);
-        if (repetido) {
-          alert(`El número de unidad #${idIngresado} ya está registrado en el sistema.`);
-          return;
-        }
-
-        this.vehiculos.push({
-          ...this.formVehiculo,
-          id: idIngresado,
-          marca: this.formVehiculo.marca || 'No registrada'
+    obtenerUnidades() {
+      onSnapshot(collection(db, "unidades"), (querySnapshot) => {
+        const unidadesDesdeFirebase = [];
+        querySnapshot.forEach((doc) => {
+          unidadesDesdeFirebase.push({ id: doc.id, ...doc.data() });
         });
+        // Sigue ordenando numéricamente para que el 01 vaya antes que el 10
+        this.unidades = unidadesDesdeFirebase.sort((a, b) => Number(a.numero) - Number(b.numero));
+      });
+    },
+    async guardarUnidad() {
+      try {
+        if (this.editando) {
+          const unidadRef = doc(db, "unidades", this.unidadEditarId);
+          await updateDoc(unidadRef, { ...this.nuevaUnidad });
+        } else {
+          await addDoc(collection(db, "unidades"), { ...this.nuevaUnidad });
+        }
+        this.cerrarModal();
+      } catch (e) {
+        console.error("Error al guardar: ", e);
+        alert("Hubo un error al guardar. Revisa la consola.");
       }
-      this.cerrarModal();
+    },
+    editarUnidad(unidad) {
+      this.editando = true;
+      this.unidadEditarId = unidad.id;
+      this.nuevaUnidad = { 
+        numero: unidad.numero,
+        placa: unidad.placa,
+        chofer: unidad.chofer,
+        telefono: unidad.telefono,
+        contactoEmergenciaNombre: unidad.contactoEmergenciaNombre || '',
+        contactoEmergenciaParentesco: unidad.contactoEmergenciaParentesco || '',
+        contactoEmergenciaTelefono: unidad.contactoEmergenciaTelefono || '',
+        observaciones: unidad.observaciones || '',
+        estado: unidad.estado,
+        fechaIngreso: unidad.fechaIngreso
+      };
+      this.showModal = true;
+    },
+    async eliminarUnidad(id) {
+      if(confirm("¿Estás seguro de que deseas eliminar esta unidad de la flota?")) {
+        try {
+          await deleteDoc(doc(db, "unidades", id));
+        } catch (e) {
+          console.error("Error al eliminar: ", e);
+        }
+      }
+    },
+    getBadgeClass(estado) {
+      switch (estado) {
+        case 'Disponible': return 'badge bg-success';
+        case 'Ocupado': return 'badge bg-danger';
+        case 'Mantenimiento': return 'badge bg-warning text-dark';
+        case 'Fuera de Servicio': return 'badge bg-secondary';
+        default: return 'badge bg-primary';
+      }
     }
   }
-};
+}
 </script>
 
 <style scoped>
-.header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.header-section h2 { font-size: 1.25rem; color: #0f172a; }
-
-.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
-.card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border: 1px solid #f1f5f9; }
-.metric { display: flex; align-items: center; gap: 20px; }
-.metric-icon { width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-.metric-icon.blue { background: #eff6ff; }
-.metric-icon.green { background: #f0fdf4; }
-.metric-icon.orange { background: #fff7ed; }
-.metric-icon.red { background: #fef2f2; }
-.metric-info h3 { font-size: 0.9rem; color: #64748b; margin-bottom: 4px; font-weight: 500; }
-.metric-number { font-size: 1.75rem; font-weight: 700; color: #0f172a; }
-.text-success { color: #166534; }
-.text-warning { color: #92400e; }
-.text-danger { color: #991b1b; }
-
-.table-container { padding: 0; overflow: hidden; }
-.table-responsive { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; text-align: left; }
-th { background-color: #f8fafc; color: #64748b; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; padding: 16px 24px; border-bottom: 1px solid #e2e8f0; }
-td { padding: 16px 24px; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; vertical-align: middle; }
-.text-center { text-align: center; }
-.fw-500 { font-weight: 500; }
-.text-xs { font-size: 0.8rem; }
-.text-muted { color: #64748b; }
-.mt-1 { margin-top: 4px; }
-
-.unidad-id { font-weight: 700; color: #3b82f6; background: #eff6ff; padding: 4px 8px; border-radius: 6px; }
-.placa { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0; display: inline-block; font-weight: 600;}
-
-/* ESTILOS DE LA NUEVA LISTA DESPLEGABLE EN TABLA */
-.estado-select {
-  padding: 6px 28px 6px 12px;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  border: 1px solid transparent;
-  cursor: pointer;
-  appearance: none; /* Quita la flecha por defecto fea del navegador */
-  -webkit-appearance: none;
-  /* Dibuja una flechita personalizada elegante */
-  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23475569%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px top 50%;
-  background-size: 10px auto;
-  outline: none;
-  transition: all 0.2s ease;
+.table th {
+  white-space: nowrap;
 }
-
-.estado-select:hover { filter: brightness(0.95); }
-.estado-select:focus { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
-
-/* Clases de colores para el select y los contadores */
-.badge-success { background-color: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.badge-warning { background-color: #fef3c7; color: #92400e; border-color: #fde68a; }
-.badge-danger { background-color: #fee2e2; color: #991b1b; border-color: #fecaca; }
-.badge-dark { background-color: #f1f5f9; color: #475569; border-color: #cbd5e1; }
-
-.actions-group { display: flex; gap: 6px; align-items: center; }
-.btn { padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
-.btn-primary { background-color: #3b82f6; color: white; padding: 8px 16px; }
-.btn-primary:hover { background-color: #2563eb; transform: translateY(-1px); }
-.btn-outline { background-color: transparent; border: 1px solid #cbd5e1; color: #475569; font-size: 1rem; }
-.btn-edit:hover { border-color: #3b82f6; color: #3b82f6; background-color: #eff6ff; }
-.btn-delete:hover { border-color: #ef4444; color: #ef4444; background-color: #fef2f2; }
-
-/* MODAL */
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; animation: fadeIn 0.2s ease-out; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-.modal-content { background: white; width: 100%; max-width: 500px; border-radius: 16px; padding: 30px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); animation: slideUp 0.3s ease-out; }
-@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; }
-.modal-header h3 { color: #0f172a; font-size: 1.25rem; margin: 0; }
-.close-btn { background: transparent; border: none; font-size: 1.2rem; color: #94a3b8; cursor: pointer; }
-.close-btn:hover { color: #ef4444; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-.form-group { margin-bottom: 16px; display: flex; flex-direction: column; }
-.form-group label { font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 6px; }
-.form-group input, .form-group select { width: 100%; box-sizing: border-box; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; color: #1e293b; outline: none; transition: border-color 0.2s; font-family: inherit; background-color: white;}
-.form-group input:focus, .form-group select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-.modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px; border-top: 1px solid #f1f5f9; padding-top: 15px; }
 </style>

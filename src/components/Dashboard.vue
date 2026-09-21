@@ -1,211 +1,303 @@
 <template>
-  <div class="layout-container">
-    <aside :class="['sidebar', { 'collapsed': menuPlegado }]">
-      <div class="sidebar-header">
-        <div class="brand" v-if="!menuPlegado">
-          <span class="brand-icon">🚕</span>
-          <span class="brand-name">Transnewfastcar</span>
-        </div>
-        <button class="toggle-btn" @click="menuPlegado = !menuPlegado">
-          {{ menuPlegado ? '☰' : '◀' }}
-        </button>
+  <div class="container-fluid mt-4">
+    <!-- Header con Saludo y Fecha -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h3 class="mb-1 fw-bold text-dark">{{ saludo }}, Administrador</h3>
+        <p class="text-muted small mb-0"><i class="bi bi-calendar3 me-1"></i> Hoy es {{ fechaActual }}</p>
       </div>
+      <button class="btn btn-outline-primary btn-sm bg-white" @click="refrescarDatos">
+        <i class="bi bi-arrow-clockwise me-1"></i> Actualizar
+      </button>
+    </div>
 
-      <nav class="sidebar-nav">
-        <button :class="['nav-item', vistaActual === 'mapa' ? 'active' : '']" @click="vistaActual = 'mapa'">
-          <span class="nav-icon">🗺️</span>
-          <span class="nav-label" v-if="!menuPlegado">Monitoreo GPS</span>
-        </button>
-
-        <button :class="['nav-item', vistaActual === 'base' ? 'active' : '']" @click="vistaActual = 'base'">
-          <span class="nav-icon">🏢</span>
-          <span class="nav-label" v-if="!menuPlegado">Base / Punteros</span>
-        </button>
-
-        <!-- GRUPO FLOTA CON DESPLEGABLE -->
-        <div class="nav-group">
-          <!-- Botón Padre -->
-          <button 
-            :class="['nav-item', (vistaActual === 'flota' || vistaActual === 'guardias') ? 'active-parent' : '']" 
-            @click="toggleMenuFlota"
-          >
-            <span class="nav-icon">🚖</span>
-            <span class="nav-label" v-if="!menuPlegado">Flota y Unidades</span>
-            <span class="chevron" v-if="!menuPlegado">{{ menuFlotaExpandido ? '▼' : '▶' }}</span>
-          </button>
-          
-          <!-- Submenú oculto -->
-          <div class="sub-menu" v-if="menuFlotaExpandido && !menuPlegado">
-            <button :class="['sub-nav-item', vistaActual === 'flota' ? 'active-sub' : '']" @click="vistaActual = 'flota'">
-              Lista de Unidades
-            </button>
-            <button :class="['sub-nav-item', vistaActual === 'guardias' ? 'active-sub' : '']" @click="vistaActual = 'guardias'">
-              Turnos / Guardias
-            </button>
+    <!-- TARJETAS DE RESUMEN (KPIs) -->
+    <div class="row g-3 mb-4">
+      <!-- Tarjeta 1: Flota -->
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #0d6efd !important;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <p class="text-muted small fw-bold mb-1">UNIDADES LIBRES</p>
+                <h3 class="mb-0 fw-bold text-dark">{{ unidadesDisponibles }} <span class="fs-6 text-muted fw-normal">/ {{ totalUnidades }}</span></h3>
+              </div>
+              <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
+                <i class="bi bi-car-front-fill fs-4"></i>
+              </div>
+            </div>
+            <div class="mt-3 small">
+              <span class="text-primary fw-bold"><i class="bi bi-play-circle-fill me-1"></i>{{ unidadesOcupadas }}</span> en ruta
+            </div>
           </div>
         </div>
-
-        <button :class="['nav-item', vistaActual === 'clientes' ? 'active' : '']" @click="vistaActual = 'clientes'">
-          <span class="nav-icon">👥</span>
-          <span class="nav-label" v-if="!menuPlegado">Clientes</span>
-        </button>
-
-        <button :class="['nav-item', vistaActual === 'viajes' ? 'active' : '']" @click="vistaActual = 'viajes'">
-          <span class="nav-icon">📍</span>
-          <span class="nav-label" v-if="!menuPlegado">Carreras / Despacho</span>
-        </button>
-
-        <button :class="['nav-item', vistaActual === 'usuarios' ? 'active' : '']" @click="vistaActual = 'usuarios'">
-          <span class="nav-icon">🔐</span>
-          <span class="nav-label" v-if="!menuPlegado">Usuarios y Roles</span>
-        </button>
-
-        <!-- BOTÓN DE REPORTES -->
-        <button :class="['nav-item', vistaActual === 'reportes' ? 'active' : '']" @click="vistaActual = 'reportes'">
-          <span class="nav-icon">📈</span>
-          <span class="nav-label" v-if="!menuPlegado">Reportes</span>
-        </button>
-      </nav>
-
-      <div class="sidebar-footer">
-        <button @click="$emit('logout')" class="btn-logout">
-          <span class="nav-icon">🚪</span>
-          <span class="nav-label" v-if="!menuPlegado">Cerrar Sesión</span>
-        </button>
       </div>
-    </aside>
 
-    <div class="main-wrapper">
-      <header class="top-header">
-        <div>
-          <h1>{{ tituloVista }}</h1>
-          <p class="subtitle">Panel de Control Operativo</p>
+      <!-- Tarjeta 2: Carreras Hoy -->
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #198754 !important;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <p class="text-muted small fw-bold mb-1">CARRERAS HOY</p>
+                <h3 class="mb-0 fw-bold text-dark">{{ carrerasHoy.length }}</h3>
+              </div>
+              <div class="bg-success bg-opacity-10 p-3 rounded-circle text-success">
+                <i class="bi bi-geo-alt-fill fs-4"></i>
+              </div>
+            </div>
+            <div class="mt-3 small">
+              <span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i>{{ carrerasFinalizadasHoy }}</span> completadas
+            </div>
+          </div>
         </div>
-        <div class="user-profile">
-          <span class="user-badge">Administrador</span>
-        </div>
-      </header>
+      </div>
 
-      <main class="content-area">
-        <!-- VISTAS DE LOS MÓDULOS -->
-        <Mapa v-if="vistaActual === 'mapa'" />
-        <Base v-else-if="vistaActual === 'base'" />
-        <Flota v-else-if="vistaActual === 'flota'" />
-        <Guardias v-else-if="vistaActual === 'guardias'" />
-        <Clientes v-else-if="vistaActual === 'clientes'" />
-        <Usuarios v-else-if="vistaActual === 'usuarios'" />
-        <Carreras v-else-if="vistaActual === 'viajes'" />
-        <Reportes v-else-if="vistaActual === 'reportes'" />
-
-        <!-- PLACEHOLDER POR SI FALTA ALGUNA VISTA -->
-        <div v-else class="card placeholder-card">
-          <h3>Módulo en preparación</h3>
-          <p>Esta sección estará lista pronto.</p>
+      <!-- Tarjeta 3: Ingresos -->
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #ffc107 !important;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <p class="text-muted small fw-bold mb-1">INGRESOS DEL DÍA</p>
+                <h3 class="mb-0 fw-bold text-dark">${{ ingresosHoy.toFixed(2) }}</h3>
+              </div>
+              <div class="bg-warning bg-opacity-10 p-3 rounded-circle text-warning">
+                <i class="bi bi-currency-dollar fs-4"></i>
+              </div>
+            </div>
+            <div class="mt-3 small text-muted">
+              Suma de tarifas finalizadas hoy
+            </div>
+          </div>
         </div>
-      </main>
+      </div>
+
+      <!-- Tarjeta 4: Reservas -->
+      <div class="col-md-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #dc3545 !important;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <p class="text-muted small fw-bold mb-1">RESERVAS PENDIENTES</p>
+                <h3 class="mb-0 fw-bold text-dark">{{ reservasPendientes }}</h3>
+              </div>
+              <div class="bg-danger bg-opacity-10 p-3 rounded-circle text-danger">
+                <i class="bi bi-calendar-event fs-4"></i>
+              </div>
+            </div>
+            <div class="mt-3 small text-danger fw-bold" v-if="reservasPendientes > 0">
+              <i class="bi bi-exclamation-circle-fill me-1"></i>Requieren atención
+            </div>
+            <div class="mt-3 small text-muted" v-else>
+              Todo al día
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEGUNDA FILA: ACTIVIDAD Y ESTADO -->
+    <div class="row g-3">
+      
+      <!-- Actividad Reciente -->
+      <div class="col-md-8">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header bg-white border-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold mb-0"><i class="bi bi-activity text-primary me-2"></i>Últimas Carreras Despachadas</h6>
+            <!-- Si ya tienes la ruta de reportes, puedes enlazarla aquí después -->
+            <button class="btn btn-sm btn-link text-decoration-none">Ver historial</button>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead class="text-muted small">
+                  <tr>
+                    <th>Hora</th>
+                    <th>Cliente</th>
+                    <th>Origen</th>
+                    <th>Unidad</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="ultimasCarreras.length === 0">
+                    <td colspan="5" class="text-center py-4 text-muted">No hay carreras recientes.</td>
+                  </tr>
+                  <tr v-for="carrera in ultimasCarreras" :key="carrera.id">
+                    <td class="small">{{ formatearHora(carrera.fecha) }}</td>
+                    <td class="fw-bold small">{{ carrera.cliente }}</td>
+                    <td class="small text-truncate" style="max-width: 150px;">{{ carrera.origen }}</td>
+                    <td><span class="badge bg-dark">#{{ String(carrera.unidadNumero).padStart(2, '0') }}</span></td>
+                    <td>
+                      <span class="badge" :class="colorEstado(carrera.estado)">{{ carrera.estado }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estado de la Flota (Mini Panel) -->
+      <div class="col-md-4">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header bg-white border-0 pt-4 pb-0">
+            <h6 class="fw-bold mb-0"><i class="bi bi-pie-chart-fill text-info me-2"></i>Estado de la Flota</h6>
+          </div>
+          <div class="card-body d-flex flex-column justify-content-center">
+            
+            <div class="mb-4">
+              <div class="d-flex justify-content-between small mb-1">
+                <span class="fw-bold text-primary">Disponibles</span>
+                <span>{{ porcentajeDisponibles }}%</span>
+              </div>
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-primary" :style="{ width: porcentajeDisponibles + '%' }"></div>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <div class="d-flex justify-content-between small mb-1">
+                <span class="fw-bold text-warning">En Curso / Ocupados</span>
+                <span>{{ porcentajeOcupados }}%</span>
+              </div>
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-warning" :style="{ width: porcentajeOcupados + '%' }"></div>
+              </div>
+            </div>
+            
+            <div class="mt-auto bg-light p-3 rounded text-center border">
+              <p class="small text-muted mb-1">Total de Conductores Registrados</p>
+              <h4 class="mb-0 fw-bold">{{ totalUnidades }}</h4>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
 
 <script>
-// IMPORTAMOS TODOS LOS ARCHIVOS DEL PROYECTO
-import Mapa from './Mapa.vue';
-import Base from './Base.vue'; 
-import Flota from './Flota.vue';
-import Guardias from './Guardias.vue';
-import Clientes from './Clientes.vue';
-import Usuarios from './Usuarios.vue';
-import Carreras from './Carreras.vue'; 
-import Reportes from './Reportes.vue'; // <--- Importamos el nuevo módulo de Reportes
+import { db } from '../firebase'
+import { collection, onSnapshot } from 'firebase/firestore'
 
 export default {
-  name: 'Dashboard',
-  components: { 
-    Mapa, 
-    Base, 
-    Flota, 
-    Guardias,
-    Clientes, 
-    Usuarios, 
-    Carreras,
-    Reportes // <--- Registramos el módulo
-  },
+  name: 'DashboardView',
   data() {
     return {
-      menuPlegado: false,
-      vistaActual: 'reportes', // Inicia en Reportes para que lo veas al guardar
-      menuFlotaExpandido: false // Submenú cerrado por defecto
-    };
+      carreras: [],
+      unidades: [],
+      fechaHoyString: new Date().toLocaleDateString('es-EC')
+    }
   },
   computed: {
-    tituloVista() {
-      if (this.vistaActual === 'mapa') return 'Radar y Rastreo GPS';
-      if (this.vistaActual === 'base') return 'Control de Base';
-      if (this.vistaActual === 'flota') return 'Directorio de Flota';
-      if (this.vistaActual === 'guardias') return 'Control de Guardias y Turnos'; 
-      if (this.vistaActual === 'clientes') return 'Directorio de Clientes';
-      if (this.vistaActual === 'usuarios') return 'Gestión de Sistema y Accesos';
-      if (this.vistaActual === 'viajes') return 'Despacho de Carreras';
-      if (this.vistaActual === 'reportes') return 'Reportes Generales';
-      return 'Panel Operativo';
+    // --- LÓGICA DE SALUDO Y FECHA ---
+    saludo() {
+      const hora = new Date().getHours();
+      if (hora < 12) return 'Buenos días';
+      if (hora < 19) return 'Buenas tardes';
+      return 'Buenas noches';
+    },
+    fechaActual() {
+      const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      // Capitalizar la primera letra
+      let fecha = new Date().toLocaleDateString('es-EC', opciones);
+      return fecha.charAt(0).toUpperCase() + fecha.slice(1);
+    },
+
+    // --- LÓGICA DE UNIDADES (FLOTA) ---
+    totalUnidades() {
+      return this.unidades.length;
+    },
+    unidadesDisponibles() {
+      return this.unidades.filter(u => u.estado === 'Disponible').length;
+    },
+    unidadesOcupadas() {
+      return this.unidades.filter(u => u.estado === 'Ocupado').length;
+    },
+    porcentajeDisponibles() {
+      if (this.totalUnidades === 0) return 0;
+      return Math.round((this.unidadesDisponibles / this.totalUnidades) * 100);
+    },
+    porcentajeOcupados() {
+      if (this.totalUnidades === 0) return 0;
+      return Math.round((this.unidadesOcupadas / this.totalUnidades) * 100);
+    },
+
+    // --- LÓGICA DE CARRERAS (HOY) ---
+    carrerasHoy() {
+      // Filtra las carreras creadas el día de hoy
+      return this.carreras.filter(c => {
+        if(!c.fecha) return false;
+        return new Date(c.fecha).toLocaleDateString('es-EC') === this.fechaHoyString;
+      });
+    },
+    carrerasFinalizadasHoy() {
+      return this.carrerasHoy.filter(c => c.estado === 'Finalizada').length;
+    },
+    ingresosHoy() {
+      // Suma la tarifa de todas las carreras FINALIZADAS de hoy
+      return this.carrerasHoy
+        .filter(c => c.estado === 'Finalizada' && c.tarifa)
+        .reduce((total, c) => total + parseFloat(c.tarifa), 0);
+    },
+    reservasPendientes() {
+      return this.carreras.filter(c => c.estado === 'Programada').length;
+    },
+    ultimasCarreras() {
+      // Muestra solo las últimas 6 carreras que NO sean reservas para el historial rápido
+      return this.carreras
+        .filter(c => c.estado !== 'Programada')
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+        .slice(0, 6);
     }
   },
+  mounted() {
+    this.obtenerDatos();
+  },
   methods: {
-    toggleMenuFlota() {
-      // Abre o cierra el submenú de Flota
-      this.menuFlotaExpandido = !this.menuFlotaExpandido;
-      // Si el menú estaba cerrado y le haces clic, que te lleve por defecto a la lista de flota
-      if (this.menuFlotaExpandido && this.vistaActual !== 'flota' && this.vistaActual !== 'guardias') {
-        this.vistaActual = 'flota';
-      }
+    obtenerDatos() {
+      // Descarga las unidades
+      onSnapshot(collection(db, "unidades"), (querySnapshot) => {
+        const data = [];
+        querySnapshot.forEach((doc) => { data.push({ id: doc.id, ...doc.data() }); });
+        this.unidades = data;
+      });
+
+      // Descarga las carreras
+      onSnapshot(collection(db, "carreras"), (querySnapshot) => {
+        const data = [];
+        querySnapshot.forEach((doc) => { data.push({ id: doc.id, ...doc.data() }); });
+        this.carreras = data;
+      });
+    },
+    refrescarDatos() {
+      // Aunque Firebase es en tiempo real, este botón da tranquilidad psicológica al usuario
+      this.fechaHoyString = new Date().toLocaleDateString('es-EC');
+    },
+    formatearHora(fechaIso) {
+      if (!fechaIso) return '';
+      return new Date(fechaIso).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+    },
+    colorEstado(estado) {
+      if (estado === 'Pendiente') return 'bg-warning text-dark';
+      if (estado === 'En Curso') return 'bg-info text-dark';
+      if (estado === 'Finalizada') return 'bg-success';
+      return 'bg-secondary';
     }
   }
-};
+}
 </script>
 
 <style scoped>
-.layout-container { display: flex; min-height: 100vh; background-color: #f1f5f9; }
-.sidebar { width: 250px; background-color: #0f172a; color: #ffffff; display: flex; flex-direction: column; transition: width 0.3s; position: sticky; top: 0; height: 100vh; z-index: 100;}
-.sidebar.collapsed { width: 80px; }
-.sidebar-header { padding: 24px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; }
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand-icon { font-size: 1.4rem; }
-.brand-name { font-weight: 700; font-size: 1.15rem; color: #ffffff; }
-.toggle-btn { background: #1e293b; border: none; color: #94a3b8; width: 34px; height: 34px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; margin-left: auto; }
-.toggle-btn:hover { background: #334155; color: #ffffff; }
-
-.sidebar-nav { display: flex; flex-direction: column; gap: 8px; padding: 20px 12px; flex: 1; overflow-y: auto;}
-.sidebar-nav::-webkit-scrollbar { width: 4px; }
-.sidebar-nav::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-
-.nav-item { display: flex; align-items: center; gap: 14px; padding: 12px 16px; background: transparent; border: none; border-radius: 10px; color: #94a3b8; font-size: 0.95rem; font-weight: 500; cursor: pointer; width: 100%; text-align: left; transition: all 0.2s;}
-.nav-item:hover { background-color: #1e293b; color: #ffffff; }
-.nav-item.active { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
-
-/* Estilos para el botón padre desplegado */
-.nav-group { display: flex; flex-direction: column; gap: 4px; }
-.nav-item.active-parent { background-color: rgba(37, 99, 235, 0.15); color: #ffffff; border: 1px solid rgba(37, 99, 235, 0.3); }
-.chevron { margin-left: auto; font-size: 0.7rem; color: #64748b; }
-
-/* Estilos para el submenú */
-.sub-menu { display: flex; flex-direction: column; gap: 4px; padding-left: 46px; margin-top: 4px; animation: fadeInDown 0.2s ease-out; }
-@keyframes fadeInDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-
-.sub-nav-item { background: transparent; border: none; color: #94a3b8; padding: 8px 12px; border-radius: 8px; text-align: left; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
-.sub-nav-item:hover { color: #ffffff; background: #1e293b; }
-.sub-nav-item.active-sub { color: #3b82f6; font-weight: 700; }
-
-.nav-icon { font-size: 1.2rem; min-width: 24px; text-align: center; }
-.sidebar-footer { padding: 16px 12px; border-top: 1px solid #1e293b; }
-.btn-logout { display: flex; align-items: center; gap: 14px; padding: 12px 16px; width: 100%; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 10px; color: #f87171; font-size: 0.95rem; font-weight: 600; cursor: pointer; }
-.btn-logout:hover { background-color: #ef4444; color: #ffffff; }
-
-.main-wrapper { flex: 1; padding: 30px 40px; overflow-y: auto; }
-.top-header { background: white; padding: 24px 30px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
-.top-header h1 { font-size: 1.6rem; color: #0f172a; margin-bottom: 4px; }
-.subtitle { color: #64748b; font-size: 0.95rem; }
-.user-badge { background-color: #dcfce7; color: #15803d; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
-
-.placeholder-card { text-align: center; padding: 60px 20px; color: #64748b; background: white; border-radius: 16px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; align-items: center; gap: 15px;}
-.placeholder-card h3 { color: #1e293b; margin: 0; }
+.card {
+  transition: transform 0.2s;
+}
+.card:hover {
+  transform: translateY(-2px);
+}
 </style>
